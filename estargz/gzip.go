@@ -137,6 +137,9 @@ func (gz *GzipDecompressor) ParseFooter(p []byte) (blobPayloadSize, tocOffset, t
 	}
 	defer zr.Close()
 	extra := zr.Extra
+	if len(extra) < 4 {
+		return 0, 0, 0, fmt.Errorf("invalid extra field length %d; expected >= 4", len(extra))
+	}
 	si1, si2, subfieldlen, subfield := extra[0], extra[1], extra[2:4], extra[4:]
 	if si1 != 'S' || si2 != 'G' {
 		return 0, 0, 0, fmt.Errorf("invalid subfield IDs: %q, %q; want E, S", si1, si2)
