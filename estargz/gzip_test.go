@@ -118,6 +118,38 @@ func checkLegacyFooter(t *testing.T, off int64) {
 	}
 }
 
+// TestGzipParseFooterInvalidExtra verifies that ParseFooter returns an error
+// (instead of panicking) when the gzip Extra field is empty or too short.
+func TestGzipParseFooterInvalidExtra(t *testing.T) {
+	tests := []struct {
+		name  string
+		extra []byte
+	}{
+		{"nil extra", nil},
+		{"empty extra", []byte{}},
+		{"short extra (2 bytes)", []byte{0x00, 0x01}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Build a FooterSize gzip block with the given Extra field.
+			// Pad the compressed body so the total is exactly FooterSize bytes.
+			buf := new(bytes.Buffer)
+			gz, _ := gzip.NewWriterLevel(buf, gzip.NoCompression)
+			gz.Extra = tt.extra
+			gz.Close()
+
+			// Pad or truncate to FooterSize so the length check passes.
+			footer := make([]byte, FooterSize)
+			copy(footer, buf.Bytes())
+
+			_, _, _, err := (&GzipDecompressor{}).ParseFooter(footer)
+			if err == nil {
+				t.Fatal("expected error from ParseFooter with invalid extra field, got nil")
+			}
+		})
+	}
+}
+
 func legacyFooterBytes(tocOff int64) []byte {
 	buf := bytes.NewBuffer(make([]byte, 0, legacyFooterSize))
 	gz, _ := gzip.NewWriterLevel(buf, gzip.NoCompression)
